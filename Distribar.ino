@@ -61,7 +61,15 @@ FirebaseConfig config;
 char fbdoConfigPath[DEST_SIZE] = "/";
 char fbdoCocktailsPath[DEST_SIZE] = "/";
 
-unsigned long sendDataPrevMillis = 0;
+// Distance sensor
+/* Constantes pour le timeout */
+const unsigned long MEASURE_TIMEOUT = 25000UL; // 25ms = ~8m à 340m/s
+/* Vitesse du son dans l'air en mm/us */
+const float SOUND_SPEED = 340.0 / 1000;
+const int SCAN_INTERVAL_MS = 1000;
+unsigned long previousScanMillis = 0;
+float distance_cm = 20.0;
+
 bool signupOK = false;
 StaticJsonDocument<200> barConfig;
 StaticJsonDocument<256> cocktailsQueue;
@@ -69,6 +77,10 @@ bool configurationOK = false;
 bool showLed = false;
 unsigned long ledOnPreviousMillis = 0;
 bool cocktailOnCreation = false;
+
+FirebaseJsonArray cocktail;
+bool cocktailAvailable = false;
+bool cocktailWaiting = false;
 
 void startAssociatedPump(String data) {
   Serial.print("Turning on ... ");
@@ -108,6 +120,7 @@ void startAssociatedPump(String data) {
 }
 
 void cocktailDone() {
+  Serial.println("Cocktail DONE !!");
   /*if (Firebase.RTDB.deleteNode(&rndFBDO,"/test/cocktails")){
     Serial.println("Cocktail done !");
   }
@@ -117,7 +130,7 @@ void cocktailDone() {
   }*/
 }
 
-void createAwesomeCocktail(FirebaseJsonArray cocktail) {
+void createAwesomeCocktail() {
   cocktailOnCreation = true;
   FirebaseJsonData result2;
   for (size_t i = 0; i < cocktail.size(); i++)
@@ -127,8 +140,8 @@ void createAwesomeCocktail(FirebaseJsonArray cocktail) {
         startAssociatedPump(result2.to<String>().c_str());
     }
   }
-
-  cocktailDone();
+  cocktailAvailable = false;
+  cocktailWaiting = true;
 }
 
 void showConfiguration() {
@@ -264,9 +277,10 @@ void cocktailsStreamCallback(FirebaseStream data) {
   else if (data.dataTypeEnum() == fb_esp_rtdb_data_type_array)
   {
     //Should always get an array
-      FirebaseJsonArray arr = data.to<FirebaseJsonArray>();
-      Serial.println(arr.raw());
-      createAwesomeCocktail(arr);
+      cocktail = data.to<FirebaseJsonArray>();
+      cocktailAvailable = true;
+      Serial.println(cocktail.raw());
+      
   }
      
 
@@ -291,6 +305,9 @@ void setup(){
   pinMode(GPIO_D3, OUTPUT);
   pinMode(GPIO_D2, OUTPUT);
   pinMode(GPIO_D1, OUTPUT);
+  pinMode(GPIO_D7, INPUT); // ECHO
+  pinMode(GPIO_D8, OUTPUT); // TRIGGER
+  digitalWrite(GPIO_D8, LOW);
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
@@ -346,23 +363,35 @@ void setup(){
 }
 
 void loop(){
-  if (Firebase.ready() && signupOK) { // && (millis() - sendDataPrevMillis > 8000 || sendDataPrevMillis == 0)){
-    //sendDataPrevMillis = millis();
+  if (Firebase.ready() && signupOK) {
 
-    //Get Machine config (positions of alcools in the machine)
-    /*if (!configurationOK) {
-      getBarConfig();
-      return;
+    //Create cocktail if
+    if (cocktailAvailable && (distance_cm < 4.0)) {
+      Serial.println("Start cocktail...");
+      delay(700);
+      createAwesomeCocktail();
     }
 
-    getCocktails();*/
+    //Trigger Cocktail done if glass is off
+    if (cocktailWaiting && (distance_cm > 18.0)) {
+      cocktailWaiting = false;
+      cocktailDone();
+    }
 
-    /*
-    if (showLed && (millis() - ledOnPreviousMillis > 3000)) {
-      digitalWrite(D1, LOW);
-      showLed = false;
-    } 
-    */ 
+    //Scan distance every SCAN_INTERVAL_MS
+    if (millis() - previousScanMillis > SCAN_INTERVAL_MS) {
+      previousScanMillis = millis();
+      digitalWrite(GPIO_D8, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(GPIO_D8, LOW);
+      
+      long measure = pulseIn(GPIO_D7, HIGH, MEASURE_TIMEOUT);
+      distance_cm = (measure / 2.0 * SOUND_SPEED) / 10.0;
+      
+      /* Affiche les résultats en cm */
+      Serial.print(F("Distance: "));
+      Serial.println(distance_cm);
+    }
 
   }
 }
