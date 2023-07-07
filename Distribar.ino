@@ -121,11 +121,9 @@ void startAssociatedPump(String data) {
 
 void cocktailDone() {
   Serial.println("Cocktail DONE !!");
-  FirebaseJsonArray arr;
-  arr.clear();
-
   FirebaseJson json;
   json.setJsonData(NULL);
+  
   if (Firebase.RTDB.setJSON(&cocktailsFBDO,fbdoCocktailsPath,&json)){
     Serial.println("Cocktail removed from DB!");
   }
