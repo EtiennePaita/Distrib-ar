@@ -121,13 +121,18 @@ void startAssociatedPump(String data) {
 
 void cocktailDone() {
   Serial.println("Cocktail DONE !!");
-  /*if (Firebase.RTDB.deleteNode(&rndFBDO,"/test/cocktails")){
-    Serial.println("Cocktail done !");
+  FirebaseJsonArray arr;
+  arr.clear();
+
+  FirebaseJson json;
+  json.setJsonData(NULL);
+  if (Firebase.RTDB.setJSON(&cocktailsFBDO,fbdoCocktailsPath,&json)){
+    Serial.println("Cocktail removed from DB!");
   }
   else {
-    Serial.println("Failed to delete cocktail from rtdb...");
+    Serial.println("Failed to remove cocktail from DB...");
     Serial.println("REASON: " + cocktailsFBDO.errorReason());
-  }*/
+  }
 }
 
 void createAwesomeCocktail() {
