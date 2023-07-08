@@ -124,7 +124,7 @@ void cocktailDone() {
   FirebaseJson json;
   json.setJsonData(NULL);
   
-  if (Firebase.RTDB.setJSON(&cocktailsFBDO,fbdoCocktailsPath,&json)){
+  if (Firebase.RTDB.deleteNode(&cocktailsFBDO,fbdoCocktailsPath)){
     Serial.println("Cocktail removed from DB!");
   }
   else {
