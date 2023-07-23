@@ -11,10 +11,10 @@
 #include "addons/RTDBHelper.h"
 
 // Machine ID
-#define UID "295f8f74-18d9-11ee-be56-0242ac120002"
+#define UID "295f8f74-18d9-11ee-be56-0242ac120002"//"7195b2a6-1905-11ee-be56-0242ac120002"
 
-#define WIFI_SSID "iPhone de Elsa"//"XXXX-5ab5"
-#define WIFI_PASSWORD "azertyui"//"fnx4dpdsvtwh"
+#define WIFI_SSID "iPhone de Etienne"//"iPhone de Elsa"
+#define WIFI_PASSWORD "zizi97427"//"azertyui"
 
 #define API_KEY "AIzaSyCcQYX68LOS7dW939v9RTejZI1I21rr5WU"
 #define DATABASE_URL "https://distrib-ar-default-rtdb.europe-west1.firebasedatabase.app/" 
@@ -58,6 +58,7 @@ float distance_cm = 20.0;
 
 bool signupOK = false;
 StaticJsonDocument<200> barConfig;
+StaticJsonDocument<200> newConfiguration;
 StaticJsonDocument<256> cocktailsQueue;
 bool configurationOK = false;
 bool showLed = false;
@@ -159,13 +160,59 @@ void cleanMachine() {
 }
 
 void saveConfiguration(String jsonConfig) {
-  DeserializationError error = deserializeJson(barConfig, jsonConfig);
+  DeserializationError error = deserializeJson(newConfiguration, jsonConfig);
 
   if (error) {
     Serial.print(F("deserializeJson() failed: "));
     Serial.println(error.f_str());
     return;
   }
+
+  Serial.print("Bar configuration : ");
+  Serial.println(newConfiguration.size());
+
+  if (newConfiguration.size() == 5){ 
+    Serial.println("All config saved");
+    barConfig = newConfiguration;
+  } else if (newConfiguration.size() == 1) {
+    if (newConfiguration["gpio1"].as<String>() != "null") {
+      Serial.println(newConfiguration["gpio1"].as<String>());
+      Serial.println("GPIO1 config saved");
+      barConfig["gpio1"] = newConfiguration["gpio1"];
+      digitalWrite(GPIO_D5, HIGH);
+      delay(NEW_CONFIG_DELAY);
+      digitalWrite(GPIO_D5, LOW);
+    } else if (newConfiguration["gpio2"].as<String>() != "null") {
+      Serial.println(newConfiguration["gpio2"].as<String>());
+      Serial.println("GPIO2 config saved");
+      barConfig["gpio2"] = newConfiguration["gpio2"];
+      digitalWrite(GPIO_D6, HIGH);
+      delay(NEW_CONFIG_DELAY);
+      digitalWrite(GPIO_D6, LOW);
+    } else if (newConfiguration["gpio3"].as<String>() != "null") {
+      Serial.println(newConfiguration["gpio3"].as<String>());
+      Serial.println("GPIO3 config saved");
+      barConfig["gpio3"] = newConfiguration["gpio3"];
+      digitalWrite(GPIO_D3, HIGH);
+      delay(NEW_CONFIG_DELAY);
+      digitalWrite(GPIO_D3, LOW);
+    } else if (newConfiguration["gpio4"].as<String>() != "null") {
+      Serial.println(newConfiguration["gpio4"].as<String>());
+      Serial.println("GPIO4 config saved");
+      barConfig["gpio4"] = newConfiguration["gpio4"];
+      digitalWrite(GPIO_D2, HIGH);
+      delay(NEW_CONFIG_DELAY);
+      digitalWrite(GPIO_D2, LOW);
+    } else if (newConfiguration["gpio5"].as<String>() != "null") {
+      Serial.println(newConfiguration["gpio5"].as<String>());
+      Serial.println("GPIO5 config saved");
+      barConfig["gpio5"] = newConfiguration["gpio5"];
+      digitalWrite(GPIO_D1, HIGH);
+      delay(NEW_CONFIG_DELAY);
+      digitalWrite(GPIO_D1, LOW);
+    }
+  }
+
   configurationOK = true;
 
 }
@@ -205,11 +252,13 @@ void configStreamCallback(FirebaseStream data) {
   Serial.println(data.streamPath());
 
   if (data.dataTypeEnum() == fb_esp_rtdb_data_type_string) {
+    Serial.println("Should UPDATE config");
     Serial.println(data.to<String>());
     updateConfig(data.dataPath(),data.to<String>());
   }
   else if (data.dataTypeEnum() == fb_esp_rtdb_data_type_json)
   {
+    Serial.println("Should SAVE config");
     FirebaseJson *json = data.to<FirebaseJson *>();
     Serial.println(json->raw());
     saveConfiguration(data.stringData());
